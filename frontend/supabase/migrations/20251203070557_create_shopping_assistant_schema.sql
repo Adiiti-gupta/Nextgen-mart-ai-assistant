@@ -90,15 +90,6 @@ CREATE POLICY "Anyone can create conversations"
   TO anon, authenticated
   WITH CHECK (true);
 
-CREATE POLICY "Anyone can view messages"
-  ON messages FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
-CREATE POLICY "Anyone can create messages"
-  ON messages FOR INSERT
-  TO anon, authenticated
-  WITH CHECK (true);
 
 CREATE POLICY "Anyone can view cart items with session_id"
   ON cart_items FOR SELECT
@@ -120,6 +111,14 @@ CREATE POLICY "Anyone can delete cart items"
   ON cart_items FOR DELETE
   TO anon, authenticated
   USING (true);
+
+CREATE POLICY "Enable insert for all users"
+ON messages FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Enable read for all users"
+ON messages FOR SELECT
+USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_cart_items_session_id ON cart_items(session_id);
