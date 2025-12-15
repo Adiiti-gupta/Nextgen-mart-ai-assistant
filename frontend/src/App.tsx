@@ -13,7 +13,6 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -116,6 +115,26 @@ function App() {
     reader.readAsDataURL(file);
   };
 
+  // NEW: Save message to Supabase
+  const saveMessageToSupabase = async (message: Message) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: sessionId,
+          role: message.role,
+          content: message.content,
+          created_at: message.created_at,
+        });
+
+      if (error) {
+        console.error('Error saving message to Supabase:', error);
+      }
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  };
+
   const loadProducts = async () => {
     const { data } = await supabase.from('products').select('*').order('created_at');
     if (data) setProducts(data);
@@ -129,23 +148,56 @@ function App() {
     if (data) setCartItems(data as CartItem[]);
   };
 
+  // MODIFIED: Load chat history or create new conversation
   const initializeConversation = async () => {
-    const welcomeMessage: Message = {
-      id: 'welcome',
-      conversation_id: '',
-      role: 'assistant',
-      content: 'Hello! 👋 Welcome to NextGen Mart! I\'m your AI shopping assistant with voice and visual search capabilities. I can help you find products, answer questions, and make recommendations. What are you looking for today?',
-      created_at: new Date().toISOString(),
-    };
-    setMessages([welcomeMessage]);
+    try {
+      // Try to load existing conversation
+      const { data: existingMessages } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', sessionId)
+        .order('created_at', { ascending: true })
+        .limit(50); // Last 50 messages
+
+      if (existingMessages && existingMessages.length > 0) {
+        // Load existing conversation
+        console.log('Loaded existing conversation with', existingMessages.length, 'messages');
+        setMessages(existingMessages as Message[]);
+      } else {
+        // New conversation - show welcome message
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          conversation_id: sessionId,
+          role: 'assistant',
+          content: 'Hello! 👋 Welcome to NextGen Mart! I\'m your AI shopping assistant with voice and visual search capabilities. I can help you find products, answer questions, and make recommendations. What are you looking for today?',
+          created_at: new Date().toISOString(),
+        };
+        setMessages([welcomeMessage]);
+        
+        // Save welcome message to Supabase
+        await saveMessageToSupabase(welcomeMessage);
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      // Fallback to welcome message
+      const welcomeMessage: Message = {
+        id: 'welcome',
+        conversation_id: sessionId,
+        role: 'assistant',
+        content: 'Hello! 👋 Welcome to NextGen Mart! I\'m your AI shopping assistant with voice and visual search capabilities. I can help you find products, answer questions, and make recommendations. What are you looking for today?',
+        created_at: new Date().toISOString(),
+      };
+      setMessages([welcomeMessage]);
+    }
   };
 
+  // MODIFIED: Save messages to Supabase
   const sendMessage = async () => {
     if ((!inputMessage.trim() && !uploadedImage) || isLoading) return;
 
     const userMessage: Message = {
       id: `temp-${Date.now()}`,
-      conversation_id: conversationId || '',
+      conversation_id: sessionId,
       role: 'user',
       content: inputMessage,
       created_at: new Date().toISOString(),
@@ -160,12 +212,15 @@ function App() {
     setUploadedImage(null);
     setIsLoading(true);
 
+    // Save user message to Supabase
+    await saveMessageToSupabase(userMessage);
+
     try {
       const response = await sendChatMessage(messageText, imageData);
 
       const assistantMessage: Message = {
         id: `temp-${Date.now()}-assistant`,
-        conversation_id: conversationId || '',
+        conversation_id: sessionId,
         role: 'assistant',
         content: response.reply,
         created_at: new Date().toISOString(),
@@ -175,6 +230,9 @@ function App() {
 
       setMessages((prev) => [...prev, assistantMessage]);
       
+      // Save assistant message to Supabase
+      await saveMessageToSupabase(assistantMessage);
+      
       // Speak response if voice enabled
       if (voiceEnabled && response.reply) {
         speakText(response.reply);
@@ -183,12 +241,15 @@ function App() {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: `temp-${Date.now()}-error`,
-        conversation_id: conversationId || '',
+        conversation_id: sessionId,
         role: 'assistant',
         content: 'Sorry, something went wrong. Please make sure the backend server is running and try again.',
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
+      
+      // Save error message to Supabase
+      await saveMessageToSupabase(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -383,7 +444,7 @@ function App() {
                   </div>
                 )}
                 
-                {/*  Speaking Indicator */}
+                {/* Speaking Indicator */}
                 {isSpeaking && (
                   <div className="mb-2 flex items-center gap-2 text-sm text-blue-600">
                     <Volume2 className="w-4 h-4 animate-pulse" />
@@ -461,3 +522,4 @@ function App() {
 }
 
 export default App;
+
