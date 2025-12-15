@@ -1,5 +1,7 @@
 # 🛍️ NextGen Mart - AI Shopping Assistant
 
+[NextGen Mart](https://nextgen-mart-ai-assistant.vercel.app/)
+
 An advanced e-commerce platform with AI-powered shopping assistant featuring voice interaction, visual search, and intelligent purchase predictions.
 
 ## ✨ Features
