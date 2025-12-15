@@ -57,7 +57,7 @@ http://localhost:5173
 ### Backend (.env)
 ```env
 AI_PROVIDER=gemini
-AI_MODEL=gemini-1.5-flash
+AI_MODEL=gemini-2.5-flash
 AI_API_KEY=your_key_here
 PORT=3000
 ```
